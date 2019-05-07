@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8" ?>  
+<!DOCTYPE mapper 
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"  
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.easyoj.web.mapper.ProblemTagMapper">
+	<!-- ResultMap -->
+	<resultMap id="ProblemTagResultMap" 
+		type="com.easyoj.web.model.ProblemTag">
+		<id property="problemTagId" column="problem_tag_id" />
+		<result property="problemTagSlug" column="problem_tag_slug" />
+		<result property="problemTagName" column="problem_tag_name" />
+	</resultMap>
+	<resultMap id="ProblemTagRelationshipResultMap"
+		type="com.easyoj.web.model.ProblemTagRelationship">
+		<id property="problemId" column="problem_id" />
+		<id property="problemTagId" column="problem_tag_id" />
+		<result property="problemTagSlug" column="problem_tag_slug" />
+		<result property="problemTagName" column="problem_tag_name" />
+	</resultMap>
+
+	<!-- Methods -->
+	<select id="getProblemTags"
+		resultMap="ProblemTagResultMap"
+		useCache="true">
+		SELECT *
+		FROM eoj_problem_tags
+	</select>
+	<select id="getProblemTagUsingTagId"
+		parameterType="long"
+		resultMap="ProblemTagResultMap"
+		useCache="true">
+		SELECT *
+		FROM eoj_problem_tags
+		WHERE problem_tag_id = #{problemTagId}
+	</select>
+	<select id="getProblemTagsUsingProblemId"
+		parameterType="long"
+		resultMap="ProblemTagResultMap"
+		useCache="true">
+		SELECT *
+		FROM eoj_problem_tags
+		NATURAL JOIN eoj_problem_tag_relationships
+		WHERE problem_id = #{problemId}
+	</select>
+	<select id="getProblemTagsOfProblems"
+			parameterType="map"
+			resultMap="ProblemTagRelationshipResultMap"
+			useCache="true">
+		<!-- SELECT *
+		FROM eoj_problem_tag_relationships
+		NATURAL JOIN eoj_problem_tags
+		WHERE problem_id &gt;= #{problemIdLowerBound}
+		AND problem_id &lt;= #{problemIdUpperBound} -->
+		SELECT problem_id,problem_tag_id,problem_tag_slug,problem_tag_name
+		FROM eoj_problems p 
+		NATURAL JOIN eoj_problem_category_relationships pcr<!-- 三表连接 -->
+		NATURAL JOIN eoj_problem_tag_relationships ptr
+		NATURAL JOIN eoj_problem_tags pt
+		WHERE p.problem_id &gt;= #{problemId} 
+		AND p.problem_id &lt;(#{problemId}+#{limit})
+		<if test="isPublicOnly == true">
+			AND problem_is_public = 1
+		</if>
+		<if test="keyword != null and keyword != ''">
+			AND problem_name LIKE "%"#{keyword}"%"
+		</if>
+		<if test="problemCategoryId != 0">
+			AND problem_category_id = #{problemCategoryId}
+		</if>
+		<if test="problemTagId != 0">
+			AND problem_tag_id = #{problemTagId}
+		</if>
+		GROUP BY problem_id,problem_tag_id<!-- 利用主码的唯一性去重 -->
+		order by p.problem_id
+		<!-- LIMIT #{limit}  改为 用problem id 控制范围 -->
+	</select>
+	<select id="getProblemTagUsingTagSlug"
+		parameterType="String"
+		resultMap="ProblemTagResultMap"
+		useCache="true">
+		SELECT *
+		FROM eoj_problem_tags
+		WHERE problem_tag_slug = #{problemTagSlug}
+	</select>
+	<insert id="createProblemTag" 
+		parameterType="com.easyoj.web.model.ProblemTag"
+		flushCache="true" 
+		keyProperty="problemTagId" 
+		keyColumn="problem_tag_id"
+		useGeneratedKeys="true">
+		INSERT INTO eoj_problem_tags (problem_tag_slug, problem_tag_name) 
+		VALUES (#{problemTagSlug}, #{problemTagName})
+	</insert>
+	<insert id="createProblemTagRelationship" 
+		parameterType="map"
+		flushCache="true">
+		INSERT INTO eoj_problem_tag_relationships (problem_id, problem_tag_id) 
+		VALUES (#{problemId}, #{problemTag.problemTagId})
+	</insert>
+	<update id="updateProblemTag"
+		parameterType="com.easyoj.web.model.ProblemTag"
+		flushCache="true">
+		UPDATE eoj_problem_tags 
+		SET problem_tag_slug = #{problemTagSlug}, problem_tag_name = #{problemTagName}
+		WHERE problem_tag_id = #{problemTagId}
+	</update>
+	<delete id="deleteProblemTagUsingTagId"
+		parameterType="long"
+		flushCache="true">
+		DELETE FROM eoj_problem_tags 
+		WHERE problem_tag_id = #{problemTagId}
+	</delete>
+	<delete id="deleteProblemTagRelationship"
+		parameterType="long"
+		flushCache="true">
+		DELETE FROM eoj_problem_tag_relationships 
+		WHERE problem_id = #{problemId}
+	</delete>
+</mapper>
